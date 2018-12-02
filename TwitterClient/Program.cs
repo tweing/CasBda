@@ -47,6 +47,9 @@ namespace TwitterClient
             var createBigFile = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["create_big_file"]) ?
             Convert.ToBoolean(ConfigurationManager.AppSettings["create_big_file"])
             : false;
+            var includeRetweets = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["IncludeRetweets"]) ?
+                Convert.ToBoolean(ConfigurationManager.AppSettings["IncludeRetweets"])
+                : false;
 
             //Configure EventHub
             var config = new EventHubConfig();
@@ -68,7 +71,7 @@ namespace TwitterClient
             string path = Path.Combine(folderName, Path.ChangeExtension(bigFileName, ".config"));
             File.WriteAllText(path, @"CAS BDA Search (Team Pharma) for Tweets was started with the following keywords:" + Environment.NewLine + Environment.NewLine + keywords, Encoding.UTF8);
 
-            var twitterConfig = new TwitterConfig(oauthToken, oauthTokenSecret, oauthCustomerKey, oauthConsumerSecret, keywords, searchGroups, createBigFile, folderName, bigFileName);
+            var twitterConfig = new TwitterConfig(oauthToken, oauthTokenSecret, oauthCustomerKey, oauthConsumerSecret, keywords, searchGroups, createBigFile, folderName, bigFileName, includeRetweets);
             var sendingPayload = tweet.StreamStatuses(twitterConfig).Where(e => !string.IsNullOrWhiteSpace(e.Text)).Select(t => Sentiment.ComputeScore(t, searchGroups, mode)).Select(
                     t => new Payload { CreatedAt = t.CreatedAt, Topic = t.Topic, SentimentScore = t.SentimentScore, Author = t.UserName, Text = t.Text, SendExtended = sendExtendedInformation, Language = t.Language});
 			if (removeAllUndefined)

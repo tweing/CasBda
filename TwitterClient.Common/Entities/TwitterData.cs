@@ -42,9 +42,10 @@ namespace TwitterClient.Common
         public readonly bool CreateBigFile;
         public readonly string FolderName;
         public readonly string BigFileName;
+        public readonly bool IncludeRetweets;
 
         public TwitterConfig(string oauthToken, string oauthTokenSecret, string oauthConsumerKey, string oauthConsumerSecret, 
-            string keywords, string searchGroups, bool createBigFile, string folderName, string bigFileName)
+            string keywords, string searchGroups, bool createBigFile, string folderName, string bigFileName, bool includeRetweets)
         {
             OAuthToken = oauthToken;
             OAuthTokenSecret = oauthTokenSecret;
@@ -55,7 +56,9 @@ namespace TwitterClient.Common
             CreateBigFile = createBigFile;
             FolderName = folderName;
             BigFileName = bigFileName;
-		}
+            IncludeRetweets = includeRetweets;
+
+        }
     }
 
     [DataContract]
@@ -137,8 +140,16 @@ namespace TwitterClient.Common
                         Console.Write("potential limit");
                     }
 
-                    WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
-                    WriteToConsole(result);
+                    if ((config.IncludeRetweets == false) && result.Text.StartsWith("RT "))
+                    {
+                        Console.WriteLine("Retweet will not be processed ****");
+                    }
+                    else
+                    {
+                        WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
+                        WriteToConsole(result);
+                    }
+
                     yield return result;
                 }
 
