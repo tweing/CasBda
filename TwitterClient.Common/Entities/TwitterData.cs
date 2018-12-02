@@ -21,6 +21,8 @@ using Newtonsoft.Json;
 using System.Text;
 using System.Web;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace TwitterClient.Common
 {
@@ -80,7 +82,13 @@ namespace TwitterClient.Common
         [DataMember(Name = "country_code")]             public string CountryCode;
         [DataMember(Name = "bounding_box")]             public TwitterBoundingBox BoundingBox;
         [DataMember(Name = "attributes")]               public TwitterAttributes Attributes;
+    }
 
+    [DataContract]
+    public class RetweetedStatus
+    {
+        [DataMember(Name = "created_at")]               public string CreatedAt;
+        [DataMember(Name = "id")]                       public Int64 Id;
     }
 
     [DataContract]
@@ -108,6 +116,7 @@ namespace TwitterClient.Common
         [DataMember(Name = "user")]                    public TwitterUser User;
         [DataMember(Name = "created_at")]              public string CreatedAt;
         [DataMember(Name = "place")]                   public TwitterPlace Place;
+        [DataMember(Name = "retweeted_status")]        public RetweetedStatus RTStatus;
         [IgnoreDataMember]                             public string RawJson;
 
 
@@ -132,25 +141,44 @@ namespace TwitterClient.Common
 
                 if (!string.IsNullOrWhiteSpace(line) && !line.StartsWith("{\"delete\"") && !line.StartsWith("{\"limit\""))
                 {
-                    var result = (Tweet)jsonSerializer.ReadObject(new MemoryStream(Encoding.UTF8.GetBytes(line)));
-                    result.RawJson = line;
-
-                    if (result.CreatedAt == null)
+                    Debug.WriteLine(line);
+                    // Sometimes the line is not correctly read which will end up in a serialization exception
+                    dynamic result = null;
+                    try
                     {
-                        Console.Write("potential limit");
+                        result = (Tweet)jsonSerializer.ReadObject(new MemoryStream(Encoding.UTF8.GetBytes(line)));
+                        result.RawJson = line;
+
+                        if (result.CreatedAt == null)
+                        {
+                            Console.Write("potential limit");
+                        }
+
+                        if ((config.IncludeRetweets == false) && IsRetweet(result))
+                        {
+                            var previousColor = Console.BackgroundColor;
+                            Console.BackgroundColor = ConsoleColor.Cyan;
+                            Console.WriteLine("Retweet will not be processed ****");
+                            Console.BackgroundColor = previousColor;
+                        }
+                        else
+                        {
+                            WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
+                            WriteToConsole(result);
+                        }
+                    }
+                    catch (SerializationException)
+                    {
+                        var previousColor = Console.BackgroundColor;
+                        Console.BackgroundColor = ConsoleColor.Red;
+                        Console.WriteLine("Line could not be de-serialized: " + line);
+                        Console.BackgroundColor = previousColor;
                     }
 
-                    if ((config.IncludeRetweets == false) && result.Text.StartsWith("RT "))
+                    if (result != null)
                     {
-                        Console.WriteLine("Retweet will not be processed ****");
+                        yield return result;
                     }
-                    else
-                    {
-                        WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
-                        WriteToConsole(result);
-                    }
-
-                    yield return result;
                 }
 
                 // Oops the Twitter has ended... or more likely some error have occurred.
@@ -158,12 +186,31 @@ namespace TwitterClient.Common
                 if (line == null)
                 {
                     Console.BackgroundColor = ConsoleColor.Red;
-                    Console.WriteLine("Potential Limit reached... will reconnect to feed.");
+                    Console.WriteLine("Potential Limit reached... will reconnect to feed in an instant.");
                     Console.BackgroundColor = ConsoleColor.Black;
+
+                    // As an exception we use Thread.Sleep here
+                    Thread.Sleep(1000);
 
                     streamReader = ReadTweets(config);
                 }
             }
+        }
+
+        private bool IsRetweet(Tweet result)
+        {
+            // According to https://stackoverflow.com/questions/29689566/exclude-retweets-from-twitter-streaming-api-using-tweepy
+            // retweets are officially marked with the Retweeted attribute set to true, but sometimes people retweet with adding RT
+            // in front of the text. The post recommends if we want to exclude 'unofficial' retweets to include searching for 'RT @':
+            //   if not tweet['retweeted'] and 'RT @' not in tweet['text']:
+
+            // According to https://www.dataquest.io/blog/streaming-data-python/ 
+            // retweets are detected by the retweeted_status: "We can filter out retweets by checking for the retweeted_status property."
+            if (result.RTStatus != null)
+            {
+                return true;
+            }
+            return false;
         }
 
         private void WriteToConsole(Tweet tweet)
