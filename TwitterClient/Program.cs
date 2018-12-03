@@ -74,10 +74,10 @@ namespace TwitterClient
             var twitterConfig = new TwitterConfig(oauthToken, oauthTokenSecret, oauthCustomerKey, oauthConsumerSecret, keywords, searchGroups, createBigFile, folderName, bigFileName, includeRetweets);
             var sendingPayload = tweet.StreamStatuses(twitterConfig).Where(e => !string.IsNullOrWhiteSpace(e.Text)).Select(t => Sentiment.ComputeScore(t, searchGroups, mode)).Select(
                     t => new Payload { CreatedAt = t.CreatedAt, Topic = t.Topic, SentimentScore = t.SentimentScore, Author = t.UserName, Text = t.Text, SendExtended = sendExtendedInformation, Language = t.Language});
-			if (removeAllUndefined)
-			{
-				sendingPayload = sendingPayload.Where(e => e.SentimentScore > -1);
-			}
+			//if (removeAllUndefined)
+			//{
+			//	sendingPayload = sendingPayload.Where(e => e.SentimentScore > -1);
+			//}
 			sendingPayload.Where(e => e.Topic != "No Match").ToObservable().Subscribe(myEventHubObserver);
         }
 

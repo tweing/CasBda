@@ -66,6 +66,7 @@ namespace TwitterClient.Common
 		//Mark Rowe
         static SentimentScore Analyze(string textToAnalyze)
         {
+            return SentimentScore.Undefined;
             try
             {
                 string url = string.Format("http://www.sentiment140.com/api/classify?text={0}",
@@ -159,7 +160,9 @@ namespace TwitterClient.Common
 		//MWR Add multikeyword so "bob car" can be found in "the car was bobs"
 		public static string DetermineTopicEfficiently(string tweetText, string searchGroups, string mode)// bool multikeyword = false, bool all = false)
 		{
-			var eachGroup = searchGroups.Split('|').ToList();
+            return "No Match";
+
+            var eachGroup = searchGroups.Split('|').ToList();
 			foreach(var group in eachGroup)
 			{
 				var allKeywords = group.Split(',').ToList();
