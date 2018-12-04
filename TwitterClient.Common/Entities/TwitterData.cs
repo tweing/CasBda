@@ -167,12 +167,13 @@ namespace TwitterClient.Common
                             WriteToConsole(result);
                         }
                     }
-                    catch (SerializationException)
+                    catch (SerializationException ex1)
                     {
-                        var previousColor = Console.BackgroundColor;
-                        Console.BackgroundColor = ConsoleColor.Red;
-                        Console.WriteLine("Line could not be de-serialized: " + line);
-                        Console.BackgroundColor = previousColor;
+                        WriteException(line, ex1);
+                    }
+                    catch (JsonSerializationException ex2)
+                    {
+                        WriteException(line, ex2);
                     }
 
                     if (result != null)
@@ -195,6 +196,14 @@ namespace TwitterClient.Common
                     streamReader = ReadTweets(config);
                 }
             }
+        }
+
+        private static void WriteException(string line, Exception e)
+        {
+            var previousColor = Console.BackgroundColor;
+            Console.BackgroundColor = ConsoleColor.Red;
+            Console.WriteLine("Line could not be de-serialized: " + line);
+            Console.BackgroundColor = previousColor;
         }
 
         private bool IsRetweet(Tweet result)
