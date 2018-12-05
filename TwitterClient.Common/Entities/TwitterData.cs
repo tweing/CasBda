@@ -148,23 +148,26 @@ namespace TwitterClient.Common
                     {
                         result = (Tweet)jsonSerializer.ReadObject(new MemoryStream(Encoding.UTF8.GetBytes(line)));
                         result.RawJson = line;
+                        numberTweets++;
 
                         if (result.CreatedAt == null)
                         {
                             Console.Write("potential limit");
                         }
-
-                        if ((config.IncludeRetweets == false) && IsRetweet(result))
-                        {
-                            var previousColor = Console.BackgroundColor;
-                            Console.BackgroundColor = ConsoleColor.Cyan;
-                            Console.WriteLine("Retweet will not be processed ****");
-                            Console.BackgroundColor = previousColor;
-                        }
                         else
                         {
-                            WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
-                            WriteToConsole(result);
+                            if ((config.IncludeRetweets == false) && IsRetweet(result))
+                            {
+                                var previousColor = Console.ForegroundColor;
+                                Console.ForegroundColor = ConsoleColor.DarkYellow;
+                                Console.WriteLine("{0} Retweet will not be processed ****", numberTweets);
+                                Console.ForegroundColor = previousColor;
+                            }
+                            else
+                            {
+                                WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
+                                WriteToConsole(result);
+                            }
                         }
                     }
                     catch (SerializationException ex1)
@@ -225,9 +228,8 @@ namespace TwitterClient.Common
         private void WriteToConsole(Tweet tweet)
         {
             var serialisedString = JsonConvert.SerializeObject(tweet);
-            numberTweets++;
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("Tweet to Disk ({0}) at: {1} : {2}", numberTweets, tweet.CreatedAt.ToString(), serialisedString);
+            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, tweet.CreatedAt.ToString(), serialisedString);
         }
 
         private void WriteToFile(Tweet tweet, bool createBigFile, string folderName, string bigFileName)
