@@ -36,7 +36,6 @@ namespace TwitterClient.Common
                 ProfileImageUrl = tweet.User != null ? (tweet.User.ProfileImageUrl != null ? tweet.User.ProfileImageUrl : "(unknown)") : "(unknown)",
                 Text = tweet.Text,
                 Language = tweet.Language != null ? tweet.Language : "(unknown)",
-                RawJson = tweet.RawJson,
                 SentimentScore = (int)Analyze(tweet.Text),
                 Topic = DetermineTopicEfficiently(tweet.Text, searchGroups, mode),
             };

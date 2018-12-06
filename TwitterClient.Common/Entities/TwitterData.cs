@@ -117,8 +117,6 @@ namespace TwitterClient.Common
         [DataMember(Name = "created_at")]              public string CreatedAt;
         [DataMember(Name = "place")]                   public TwitterPlace Place;
         [DataMember(Name = "retweeted_status")]        public RetweetedStatus RTStatus;
-        [IgnoreDataMember]                             public string RawJson;
-
 
         private int numberTweets;
 
@@ -127,6 +125,7 @@ namespace TwitterClient.Common
 			keepRunning = true;
 		}
 		public bool keepRunning { get; set; }
+
         public IEnumerable<Tweet> StreamStatuses(TwitterConfig config)
         {
             DataContractJsonSerializer jsonSerializer = new DataContractJsonSerializer(typeof(Tweet));
@@ -147,7 +146,6 @@ namespace TwitterClient.Common
                     try
                     {
                         result = (Tweet)jsonSerializer.ReadObject(new MemoryStream(Encoding.UTF8.GetBytes(line)));
-                        result.RawJson = line;
                         numberTweets++;
 
                         if (result.CreatedAt == null)
@@ -165,18 +163,18 @@ namespace TwitterClient.Common
                             }
                             else
                             {
-                                WriteToFile(result, config.CreateBigFile, config.FolderName, config.BigFileName);
-                                WriteToConsole(result);
+                                WriteToFile(line, config.CreateBigFile, config.FolderName, config.BigFileName);
+                                WriteToConsole(line);
                             }
                         }
                     }
                     catch (SerializationException ex1)
                     {
-                        WriteException(line, ex1);
+                        WriteException("Line could not be de-serialized: " + line, ex1);
                     }
                     catch (JsonSerializationException ex2)
                     {
-                        WriteException(line, ex2);
+                        WriteException("Line could not be de-serialized: " + line, ex2);
                     }
 
                     if (result != null)
@@ -201,11 +199,11 @@ namespace TwitterClient.Common
             }
         }
 
-        private static void WriteException(string line, Exception e)
+        private static void WriteException(string message, Exception e)
         {
             var previousColor = Console.BackgroundColor;
             Console.BackgroundColor = ConsoleColor.Red;
-            Console.WriteLine("Line could not be de-serialized: " + line);
+            Console.WriteLine(message);
             Console.BackgroundColor = previousColor;
         }
 
@@ -225,17 +223,16 @@ namespace TwitterClient.Common
             return false;
         }
 
-        private void WriteToConsole(Tweet tweet)
+        private void WriteToConsole(string rawJsonLine)
         {
-            var serialisedString = JsonConvert.SerializeObject(tweet);
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, tweet.CreatedAt.ToString(), serialisedString);
+            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, DateTime.Now, rawJsonLine);
         }
 
-        private void WriteToFile(Tweet tweet, bool createBigFile, string folderName, string bigFileName)
+        private void WriteToFile(string rawJsonLine, bool createBigFile, string folderName, string bigFileName)
         {
             // need to deserialize and re-serialize to get rid of \u escaped text
-            dynamic jsonObject = JsonConvert.DeserializeObject(tweet.RawJson);
+            dynamic jsonObject = JsonConvert.DeserializeObject(rawJsonLine);
             var rawJson = JsonConvert.SerializeObject(jsonObject);
 
             // Add a new line to the end of the raw JSON for easier separation in the file:
@@ -276,10 +273,21 @@ namespace TwitterClient.Common
 
             // bail out and retry after 5 seconds
             var responseTask = request.GetResponseAsync();
-            if (responseTask.Wait(5000))
-                return new StreamReader(responseTask.Result.GetResponseStream(), Encoding.UTF8); // TWE: added Encoding.UTF8
-            else
+            try
             {
+                if (responseTask.Wait(5000))
+                {
+                    return new StreamReader(responseTask.Result.GetResponseStream(), Encoding.UTF8); // TWE: added Encoding.UTF8
+                }
+                else
+                {
+                    request.Abort();
+                    return StreamReader.Null;
+                }
+            }
+            catch (AggregateException ae)
+            {
+                WriteException("Exception while reading tweets: ", ae);
                 request.Abort();
                 return StreamReader.Null;
             }
