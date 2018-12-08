@@ -246,7 +246,8 @@ namespace TwitterClient.Common
             else
             {
                 string path = Path.Combine(folderName, TwitterConfig.GetTweetFilename());
-                File.WriteAllText(path, rawJson, Encoding.UTF8);
+                // Without Encoding it will be written as UTF-8 w/o BOM
+                File.WriteAllText(path, rawJson);
             }
         }
 
