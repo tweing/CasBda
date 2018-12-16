@@ -43,11 +43,13 @@ namespace TwitterClient.Common
 		public readonly string SearchGroups;
         public readonly bool CreateBigFile;
         public readonly string FolderName;
-        public readonly string BigFileName;
+        public string BigFileName;
         public readonly bool IncludeRetweets;
+        public readonly long FileSizeLimit;
 
         public TwitterConfig(string oauthToken, string oauthTokenSecret, string oauthConsumerKey, string oauthConsumerSecret, 
-            string keywords, string searchGroups, bool createBigFile, string folderName, string bigFileName, bool includeRetweets)
+            string keywords, string searchGroups, bool createBigFile, string folderName, bool includeRetweets,
+            long fileSizeLimit)
         {
             OAuthToken = oauthToken;
             OAuthTokenSecret = oauthTokenSecret;
@@ -57,9 +59,10 @@ namespace TwitterClient.Common
 			SearchGroups = searchGroups;
             CreateBigFile = createBigFile;
             FolderName = folderName;
-            BigFileName = bigFileName;
             IncludeRetweets = includeRetweets;
-
+            FileSizeLimit = fileSizeLimit;
+            // Auto Create big file name -> might be overwritten when size limit is reached!
+            BigFileName = GetTweetFilename();
         }
     }
 
@@ -163,7 +166,7 @@ namespace TwitterClient.Common
                             }
                             else
                             {
-                                WriteToFile(line, config.CreateBigFile, config.FolderName, config.BigFileName);
+                                WriteToFile(line, config);
                                 WriteToConsole(line);
                             }
                         }
@@ -229,7 +232,7 @@ namespace TwitterClient.Common
             Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, DateTime.Now, rawJsonLine);
         }
 
-        private void WriteToFile(string rawJsonLine, bool createBigFile, string folderName, string bigFileName)
+        private void WriteToFile(string rawJsonLine, TwitterConfig config)
         {
             // need to deserialize and re-serialize to get rid of \u escaped text
             dynamic jsonObject = JsonConvert.DeserializeObject(rawJsonLine);
@@ -238,14 +241,23 @@ namespace TwitterClient.Common
             // Add a new line to the end of the raw JSON for easier separation in the file:
             rawJson += Environment.NewLine;
 
-            if (createBigFile)
+            if (config.CreateBigFile)
             {
-                string path = Path.Combine(folderName, bigFileName);
+                string path = Path.Combine(config.FolderName, config.BigFileName);
+                if (File.Exists(path))
+                {
+                    var currentFileSize = new FileInfo(path).Length;
+                    if (currentFileSize > config.FileSizeLimit)
+                    {
+                        // overwrite
+                        config.BigFileName = TwitterConfig.GetTweetFilename();
+                    }
+                }
                 File.AppendAllText(path, rawJson, Encoding.UTF8);
             }
             else
             {
-                string path = Path.Combine(folderName, TwitterConfig.GetTweetFilename());
+                string path = Path.Combine(config.FolderName, TwitterConfig.GetTweetFilename());
                 // Without Encoding it will be written as UTF-8 w/o BOM
                 File.WriteAllText(path, rawJson);
             }
