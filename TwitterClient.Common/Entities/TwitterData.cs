@@ -229,7 +229,7 @@ namespace TwitterClient.Common
         private void WriteToConsole(string rawJsonLine)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, DateTime.Now, rawJsonLine);
+            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, DateTime.Now, rawJsonLine.Substring(0, 80));
         }
 
         private void WriteToFile(string rawJsonLine, TwitterConfig config)
