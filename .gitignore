@@ -260,3 +260,4 @@ paket-files/
 __pycache__/
 *.pyc
 TwitterClient/App - privat (not in source control).config
+TwitterClientCore/TwitterClientCore/App - Copy.config
