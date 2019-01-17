@@ -24,39 +24,49 @@ namespace TwitterClient
 {
     class Program
     {
+        const long minFileSizeLimit = 2 * 1024 * 1024; // 2 MB minimum otherwise the file name generation wouldn't work with Seconds in the name
+        const long defaultFileSizeLimit = minFileSizeLimit;
+
         static void Main(string[] args)
         {
-            var appsettings = ConfigurationManager.AppSettings;
+            var appSettings = ConfigurationManager.AppSettings;
 
             //Configure Twitter OAuth
-            var oauthToken = ConfigurationManager.AppSettings["oauth_token"];
-            var oauthTokenSecret = ConfigurationManager.AppSettings["oauth_token_secret"];
-            var oauthCustomerKey = ConfigurationManager.AppSettings["oauth_consumer_key"];
-            var oauthConsumerSecret = ConfigurationManager.AppSettings["oauth_consumer_secret"];
-            var searchGroups = ConfigurationManager.AppSettings["twitter_keywords"];
-            var removeAllUndefined = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["clear_all_with_undefined_sentiment"]) ?
-                Convert.ToBoolean(ConfigurationManager.AppSettings["clear_all_with_undefined_sentiment"])
+            var oauthToken = appSettings["oauth_token"];
+            var oauthTokenSecret = appSettings["oauth_token_secret"];
+            var oauthCustomerKey = appSettings["oauth_consumer_key"];
+            var oauthConsumerSecret = appSettings["oauth_consumer_secret"];
+            var searchGroups = appSettings["twitter_keywords"];
+            var removeAllUndefined = !string.IsNullOrWhiteSpace(appSettings["clear_all_with_undefined_sentiment"]) ?
+                Convert.ToBoolean(appSettings["clear_all_with_undefined_sentiment"])
                 : false;
-            var sendExtendedInformation = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["send_extended_information"]) ?
-                Convert.ToBoolean(ConfigurationManager.AppSettings["send_extended_information"])
+            var sendExtendedInformation = !string.IsNullOrWhiteSpace(appSettings["send_extended_information"]) ?
+                Convert.ToBoolean(appSettings["send_extended_information"])
                 : false;
-            var AzureOn = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["AzureOn"]) ?
-                Convert.ToBoolean(ConfigurationManager.AppSettings["AzureOn"])
+            var AzureOn = !string.IsNullOrWhiteSpace(appSettings["AzureOn"]) ?
+                Convert.ToBoolean(appSettings["AzureOn"])
                 : false;
-            var mode = ConfigurationManager.AppSettings["match_mode"];
-            var createBigFile = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["create_big_file"]) ?
-                Convert.ToBoolean(ConfigurationManager.AppSettings["create_big_file"]) : false;
-            long fileSizeLimit = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["filesizelimit"]) ? 
-                Convert.ToInt64(ConfigurationManager.AppSettings["filesizelimit"]) 
-                : 524288000;
-            var includeRetweets = !string.IsNullOrWhiteSpace(ConfigurationManager.AppSettings["IncludeRetweets"]) ?
-                Convert.ToBoolean(ConfigurationManager.AppSettings["IncludeRetweets"])
+            var mode = appSettings["match_mode"];
+            var createBigFile = !string.IsNullOrWhiteSpace(appSettings["create_big_file"]) ?
+                Convert.ToBoolean(appSettings["create_big_file"]) : false;
+
+            long fileSizeLimit = !string.IsNullOrWhiteSpace(appSettings["filesizelimit"]) ?
+                Convert.ToInt64(appSettings["filesizelimit"])
+                : defaultFileSizeLimit;
+            if (fileSizeLimit < minFileSizeLimit)
+            {
+                fileSizeLimit = minFileSizeLimit;
+                Console.WriteLine("File size limit in config was too small and has been set to {0:N0}", fileSizeLimit);
+            }
+
+            var includeRetweets = !string.IsNullOrWhiteSpace(appSettings["IncludeRetweets"]) ?
+                Convert.ToBoolean(appSettings["IncludeRetweets"])
                 : false;
 
             //Configure EventHub
             var config = new EventHubConfig();
-            config.ConnectionString = ConfigurationManager.AppSettings["EventHubConnectionString"];
-            config.EventHubName = ConfigurationManager.AppSettings["EventHubName"];
+            config.ConnectionString = appSettings["EventHubConnectionString"];
+            config.EventHubName = appSettings["EventHubName"];
 
             var myEventHubObserver = new EventHubObserver(config, AzureOn);
             var keywords = searchGroups.Contains('|') ? string.Join(",", searchGroups.Split('|')) : searchGroups;

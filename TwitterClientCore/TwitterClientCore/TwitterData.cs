@@ -26,13 +26,18 @@ using System.Threading;
 
 namespace TwitterClientCore
 {
-    public struct TwitterConfig
+    public class TwitterConfig
     {
         private const string TweetFileFormat = "tweet{0:yyyyMMddHHmmss}.json";
 
         public static string GetTweetFilename()
         {
             return string.Format(TweetFileFormat, DateTime.Now);
+        }
+
+        public void InitializeBigFileName()
+        {
+            this.BigFileName = GetTweetFilename();
         }
 
         public readonly string OAuthToken;
@@ -62,7 +67,7 @@ namespace TwitterClientCore
             IncludeRetweets = includeRetweets;
             FileSizeLimit = fileSizeLimit;
             // Auto Create big file name -> might be overwritten when size limit is reached!
-            BigFileName = GetTweetFilename();
+            this.InitializeBigFileName();
         }
     }
 
@@ -229,7 +234,7 @@ namespace TwitterClientCore
         private void WriteToConsole(string rawJsonLine)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, DateTime.Now, rawJsonLine.Substring(0, 80));
+            Console.WriteLine("{0} Tweet to Disk at: {1} : {2}", numberTweets, DateTime.Now, rawJsonLine.Substring(0, 70));
         }
 
         private void WriteToFile(string rawJsonLine, TwitterConfig config)
@@ -249,8 +254,9 @@ namespace TwitterClientCore
                     var currentFileSize = new FileInfo(path).Length;
                     if (currentFileSize > config.FileSizeLimit)
                     {
-                        // overwrite
-                        config.BigFileName = TwitterConfig.GetTweetFilename();
+                        // overwrite config and local variable
+                        config.InitializeBigFileName();
+                        path = Path.Combine(config.FolderName, config.BigFileName);
                     }
                 }
                 File.AppendAllText(path, rawJson, Encoding.UTF8);
