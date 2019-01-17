@@ -178,11 +178,11 @@ namespace TwitterClientCore
                     }
                     catch (SerializationException ex1)
                     {
-                        WriteException("Line could not be de-serialized: " + line, ex1);
+                        WriteException("Line could not be de-serialized: {0}" + line, ex1);
                     }
                     catch (JsonSerializationException ex2)
                     {
-                        WriteException("Line could not be de-serialized: " + line, ex2);
+                        WriteException("Line could not be de-serialized: {0}" + line, ex2);
                     }
 
                     if (result != null)
@@ -211,7 +211,7 @@ namespace TwitterClientCore
         {
             var previousColor = Console.BackgroundColor;
             Console.BackgroundColor = ConsoleColor.Red;
-            Console.WriteLine(message);
+            Console.WriteLine(message, e.Message);
             Console.BackgroundColor = previousColor;
         }
 
@@ -306,7 +306,7 @@ namespace TwitterClientCore
             }
             catch (AggregateException ae)
             {
-                WriteException("Exception while reading tweets: ", ae);
+                WriteException("Exception while reading tweets: {0}", ae);
                 request.Abort();
                 return StreamReader.Null;
             }
