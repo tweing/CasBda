@@ -4,6 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -15,70 +16,16 @@ namespace MonboDbClientCore
     {
         private const string EndpointUrl = "mongodb://localhost:27017";
         private const string DatabaseName = "CasBda";
-        private const string DatabaseCollection = "Tweets";
+        private const string DatabaseCollection = "Playground";
         private MongoClient client;
-
-        public class Tweet
-        {
-            [BsonId]
-            public long id { get; set; }
-
-            [DataMember(Name = "in_reply_to_status_id")] public Int64? ReplyToStatusId;
-            [DataMember(Name = "in_reply_to_user_id")] public Int64? ReplyToUserId;
-            [DataMember(Name = "in_reply_to_screen_name")] public string ReplyToScreenName;
-            [DataMember(Name = "retweeted")] public bool Retweeted;
-            [DataMember(Name = "text")] public string Text;
-            [DataMember(Name = "lang")] public string Language;
-            [DataMember(Name = "source")] public string Source;
-            [DataMember(Name = "retweet_count")] public string RetweetCount;
-            [DataMember(Name = "user")] public TwitterUser User;
-            [DataMember(Name = "created_at")] public string CreatedAt;
-            [DataMember(Name = "place")] public TwitterPlace Place;
-            [DataMember(Name = "retweeted_status")] public RetweetedStatus RTStatus;
-
-            //[BsonElement("description")]
-            //public string Description { get; set; }
-        }
-
-        public class TwitterUser
-        {
-            [DataMember(Name = "time_zone")] public string TimeZone;
-            [DataMember(Name = "name")] public string Name;
-            [DataMember(Name = "profile_image_url")] public string ProfileImageUrl;
-        }
-
-        public class TwitterPlace
-        {
-            [DataMember(Name = "id")] public string id;
-            [DataMember(Name = "url")] public string Url;
-            [DataMember(Name = "place_type")] public string PlaceType;
-            [DataMember(Name = "name")] public string Name;
-            [DataMember(Name = "full_name")] public string FullName;
-            [DataMember(Name = "country_code")] public string CountryCode;
-            [DataMember(Name = "bounding_box")] public TwitterBoundingBox BoundingBox;
-            [DataMember(Name = "attributes")] public TwitterAttributes Attributes;
-        }
-
-        public class RetweetedStatus
-        {
-            [DataMember(Name = "created_at")] public string CreatedAt;
-            [DataMember(Name = "id")] public Int64 Id;
-        }
-
-        public class TwitterAttributes
-        {
-        }
-
-        public class TwitterBoundingBox
-        {
-        }
 
         static void Main(string[] args)
         {
             try
             {
                 Program p = new Program();
-                p.GetStartedDemo().Wait();
+                //p.UpdateDocs().Wait();
+                //p.ImportTweetsFromFile().Wait();
             }
             catch (Exception e)
             {
@@ -93,14 +40,53 @@ namespace MonboDbClientCore
 
         }
 
-        private async Task GetStartedDemo()
+        private async Task UpdateDocs()
         {
+            Console.WriteLine("This Command will update the ObjectId of the whole database '{0}', collection '{1}' to the Tweet id_str!", 
+                DatabaseName, DatabaseCollection);
+            Console.WriteLine("Press 'Y' to continue");
+            if (Console.ReadKey().Key != ConsoleKey.Y)
+            {
+                return;
+            }
+
             this.client = new MongoClient(EndpointUrl);
             var db = this.client.GetDatabase(DatabaseName);
             var collection = db.GetCollection<BsonDocument>(DatabaseCollection);
 
-            string docPath = @"c:\Users\Tom\Documents\tweets\";
-                // Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            using (IAsyncCursor<BsonDocument> cursor = await collection.FindAsync(new BsonDocument()))
+            {
+                while (await cursor.MoveNextAsync())
+                {
+                    IEnumerable<BsonDocument> batch = cursor.Current;
+                    foreach (BsonDocument document in batch)
+                    {
+                        var filter = new FilterDefinitionBuilder<BsonDocument>().Eq("_id", document["_id"]);
+                        document["_id"] = document["id_str"];
+                        await collection.InsertOneAsync(document);
+                        await collection.Find(filter).ForEachAsync(d => collection.DeleteOne(d));
+                        Console.WriteLine("Document updated to id '{0}'", document["_id"]);
+                    }
+                }
+            }
+        }
+
+        private async Task ImportTweetsFromFile()
+        {
+            string docPath = @"c:\Users\Tom\Documents\tweets\import";
+
+            Console.WriteLine("This Command will import all *.json files in the path '{0}' into the database '{1}', collection '{2}'.!", 
+                docPath, DatabaseName, DatabaseCollection);
+            Console.WriteLine("Press 'Y' to continue");
+            if (Console.ReadKey().Key != ConsoleKey.Y)
+            {
+                return;
+            }
+
+            this.client = new MongoClient(EndpointUrl);
+            var db = this.client.GetDatabase(DatabaseName);
+            var collection = db.GetCollection<BsonDocument>(DatabaseCollection);
+
 
             var files = from file in Directory.EnumerateFiles(docPath, "*.json", SearchOption.AllDirectories)
                         from line in File.ReadLines(file)
@@ -111,31 +97,20 @@ namespace MonboDbClientCore
                         };
 
             foreach (var f in files)
-            { 
-                Console.WriteLine("{0}\t{1}", f.File, f.Text.Substring(0, 50));
+            {
+                string log = string.Format("{0}\t{1}", f.File, f.Text.Substring(0, 50));
+                File.AppendAllText(docPath + @"\import.log", log);
+                Console.WriteLine(log);
                 // Tweet tweet = JsonConvert.DeserializeObject<Tweet>(line.Text);
                 var document = BsonSerializer.Deserialize<BsonDocument>(f.Text);
                 await InsertRecord(collection, document);
             }
-            Console.WriteLine("{0} files found.", files.Count().ToString());
+            Console.WriteLine("{ 0} files found.", files.Count().ToString());
         }
 
         private async Task InsertRecord(IMongoCollection<BsonDocument> collection, BsonDocument tweet)
         {
             await collection.InsertOneAsync(tweet);
-        }
-
-        private async Task InsertRecord(IMongoCollection<Tweet> collection, Tweet tweet)
-        {
-            await collection.InsertOneAsync(tweet);
-        }
-
-
-        private void WriteToConsoleAndPromptToContinue(string format, params object[] args)
-        {
-            Console.WriteLine(format, args);
-            Console.WriteLine("Press any key to continue ...");
-            Console.ReadKey();
         }
 
     }
