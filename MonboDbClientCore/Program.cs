@@ -101,16 +101,10 @@ namespace MonboDbClientCore
                 string log = string.Format("{0}\t{1}", f.File, f.Text.Substring(0, 50));
                 File.AppendAllText(docPath + @"\import.log", log);
                 Console.WriteLine(log);
-                // Tweet tweet = JsonConvert.DeserializeObject<Tweet>(line.Text);
                 var document = BsonSerializer.Deserialize<BsonDocument>(f.Text);
-                await InsertRecord(collection, document);
+                await collection.InsertOneAsync(document);
             }
             Console.WriteLine("{ 0} files found.", files.Count().ToString());
-        }
-
-        private async Task InsertRecord(IMongoCollection<BsonDocument> collection, BsonDocument tweet)
-        {
-            await collection.InsertOneAsync(tweet);
         }
 
     }
