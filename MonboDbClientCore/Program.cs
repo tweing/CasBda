@@ -4,6 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,7 +17,7 @@ namespace MonboDbClientCore
     {
         private const string EndpointUrl = "mongodb://localhost:27017";
         private const string DatabaseName = "CasBda";
-        private const string DatabaseCollection = "Playground";
+        private const string DatabaseCollection = "Tweets";
         private MongoClient client;
 
         static void Main(string[] args)
@@ -24,8 +25,25 @@ namespace MonboDbClientCore
             try
             {
                 Program p = new Program();
-                //p.UpdateDocs().Wait();
-                //p.ImportTweetsFromFile().Wait();
+                Console.WriteLine("Press '1' for importing tweets.");
+                Console.WriteLine("Press '2' for updating tweets.");
+                Console.WriteLine("Press '3' for aggregate.");
+                var k = Console.ReadKey();
+                switch (k.Key)
+                {
+                    case ConsoleKey.D1:
+                        p.ImportTweetsFromFile().Wait();
+                        break;
+                    case ConsoleKey.D2:
+                        p.UpdateDocs().Wait();
+                        break;
+                    case ConsoleKey.D3:
+                        p.Aggregate().Wait();
+                        break;
+                    default:
+                        Environment.FailFast("exit");
+                        break;
+                }
             }
             catch (Exception e)
             {
@@ -38,6 +56,36 @@ namespace MonboDbClientCore
                 Console.ReadKey();
             }
 
+        }
+
+        private async Task Aggregate()
+        {
+            Console.WriteLine("This Command will generate an aggregate of the whole database '{0}', collection '{1}'.",
+                DatabaseName, DatabaseCollection);
+
+            this.client = new MongoClient(EndpointUrl);
+            var db = this.client.GetDatabase(DatabaseName);
+            var collection = db.GetCollection<BsonDocument>(DatabaseCollection);
+
+
+            var grouping = new BsonDocument(
+                                "$group", new BsonDocument {
+                                    { "_id", new BsonDocument("dayCreated", new BsonDocument { { "$substrBytes", new BsonArray { "$created_at", 0, 10 } } }) },
+                                {"NbTweets", new BsonDocument("$sum", 1)}
+                                });
+
+            // projection not used -> might make the aggregation faster
+            //var projection = new BsonDocument();
+
+            var pipeline = new BsonDocument[] { grouping };
+            var json = pipeline.ToJson();
+            var results = await collection.Aggregate<BsonDocument>(pipeline).ToListAsync();
+
+            foreach (var obj in results)
+            {
+                Console.WriteLine(obj.ToString());
+            }
+            return;
         }
 
         private async Task UpdateDocs()
